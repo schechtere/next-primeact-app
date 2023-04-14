@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../supabaseClient';
+import  supabase  from '../supabaseClient';
 import  { useAuth } from '../hooks/useAuth';
 
 const Auth = () => {
@@ -34,7 +34,7 @@ const Auth = () => {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     console.log(JSON.stringify(data));
-    debugger;
+
 
     if (error) {
       setError(error.message);
@@ -53,7 +53,7 @@ const Auth = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="bg-white p-8 rounded-lg shadow-md w-full sm:w-96">
         <h1 className="text-2xl font-semibold mb-4">Authentication</h1>
-        <form className="space-y-6">
+        <div className="space-y-6">
           <div>
             <label htmlFor="email" className="sr-only">
               Email
@@ -96,7 +96,7 @@ const Auth = () => {
               Sign In
             </button>
           </div>
-        </form>
+        </div>
         {error && (
           <p className="mt-4 text-red-500 text-sm text-center">{error}</p>
         )}
