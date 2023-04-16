@@ -8,7 +8,7 @@ import LocationModal from '../components/LocationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useDebounce } from "use-debounce";
-
+import ReactPaginate from "react-paginate";
 
 
 
@@ -25,66 +25,64 @@ const LocationTable = () => {
   const [currentLocation, setCurrentLocation] = useState({});
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [debouncedFilters] = useDebounce(filters, 500);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+
 
 
   useEffect(() => {
     if (Object.values(debouncedFilters).some((filterValue) => filterValue)) {
-      fetchLocations();
+      fetchLocations(page, pageSize);
     }
-  }, [debouncedFilters]);
+  }, [debouncedFilters, page]);
 
+ 
 
-
-  const fetchLocations_fancy = async () => {
-    const { data, error } = await supabase
-      .from("locations")
-      .select("*")
-      .filter(
-        (location) =>
-          (!filters.name || location.name.ilike(`%${filters.name}%`)) &&
-          (!filters.address || location.address.ilike(`%${filters.address}%`)) &&
-          (!filters.city || location.city.ilike(`%${filters.city}%`)) &&
-          (!filters.state || location.state.ilike(`%${filters.state}%`)) &&
-          (!filters.zip || location.zip.ilike(`%${filters.zip}%`))
-      );
-
-    if (error) {
-      console.error("Error fetching locations:", error);
-    } else {
-      setLocations(data);
-    }
-  };
-
-  const fetchLocations = async () => {
-    let query = supabase.from("locations").select("*");
+  const buildLocationsQuery = () => {
+    const query = supabase.from("locations").select("*");
   
     if (filters.name) {
-      query = query.filter("name", "ilike", `%${filters.name}%`);
+      query.ilike("name", `%${filters.name}%`);
     }
     if (filters.address) {
-      query = query.filter("address", "ilike", `%${filters.address}%`);
+      query.or(`address.ilike.%${filters.address}%`);
     }
     if (filters.city) {
-      query = query.filter("city", "ilike", `%${filters.city}%`);
+      query.or(`city.ilike.%${filters.city}%`);
     }
     if (filters.state) {
-      query = query.filter("state", "ilike", `%${filters.state}%`);
+      query.or(`state.ilike.%${filters.state}%`);
     }
     if (filters.zip) {
-      query = query.filter("zip", "ilike", `%${filters.zip}%`);
+      query.or(`zip.ilike.%${filters.zip}%`);
     }
   
-    const { data, error } = await query;
-  
-    if (error) {
-      console.error("Error fetching locations:", error);
-    } else {
-      setLocations(data);
-    }
+    return query;
   };
   
 
+  const fetchLocations = async (page, pageSize) => {
+    const countQuery =buildLocationsQuery();
+    const dataQuery = buildLocationsQuery().range((page - 1) * pageSize, page * pageSize - 1);
 
+    const [{ data, error }, { data: countData, error: countError }] = await Promise.all([
+      dataQuery.select("*"),
+      countQuery.select("id", { count: "exact", head: true })
+    ]);
+
+   console.log("data", data);
+   console.log('countData.length', countData.length);
+  
+    if (error || countError) {
+      console.error("Error fetching locations:", error || countError);
+    } else {
+      setLocations(data);
+      setTotalCount(countData.length);
+    }
+  };
+  
+  
   const openModal = (location = {}) => {
     setCurrentLocation(location);
     setIsModalOpen(true);
@@ -106,28 +104,7 @@ const LocationTable = () => {
     }
   };
 
-  const fetchFilteredLocations = async (filterData) => {
-    // Construct your query with Supabase query builder using filterData
-    // e.g., if filtering by "name" column, you'd use something like this:
-    // .ilike('name', `%${filterData.name}%`)
-
-    const { data, error } = await supabase
-      .from('locations')
-      .select('*')
-      // Add your filtering conditions here based on filterData
-      .ilike('name', `%${filterData.name}%`)
-      .ilike('address', `%${filterData.address}%`)
-      .ilike('city', `%${filterData.city}%`)
-      .ilike('state', `%${filterData.state}%`)
-      .ilike('zip', `%${filterData.zip}%`);
-
-    if (error) {
-      console.error('Error fetching filtered locations:', error);
-    } else {
-      setLocations(data);
-    }
-  };
-
+  
 
   const handleEdit = (location) => {
     setCurrentLocation(location);
@@ -146,7 +123,7 @@ const LocationTable = () => {
     if (error) {
       console.log('Error deleting location:', error);
     } else {
-      fetchLocations(); // Refresh the locations after deleting
+      fetchLocations(page, pageSize); // Refresh the locations after deleting
     }
   };
 
@@ -207,7 +184,7 @@ const LocationTable = () => {
     closeModal();
 
     // Refresh the locations list
-    await fetchLocations();
+    await fetchLocations(page, pageSize);
   };
 
   const handleCancel = () => {
@@ -296,6 +273,31 @@ const LocationTable = () => {
             ))}
           </tbody>
         </table>
+
+        
+
+        <ReactPaginate
+          previousLabel={"previous"}
+          nextLabel={"next"}
+          breakLabel={"..."}
+          breakClassName={"break-me"}
+          pageCount={Math.ceil(totalCount / pageSize)}
+          marginPagesDisplayed={2}
+          pageRangeDisplayed={5}
+          onPageChange={(selected) => {
+            const newPage = selected.selected + 1;
+            setPage(newPage);
+            fetchLocations(newPage, pageSize);
+          }}
+          containerClassName={"flex justify-center py-4"}
+          pageClassName={"mx-1"}
+          activeClassName={"bg-blue-500 border-blue-500 text-white"}
+          pageLinkClassName={"px-3 py-1 border border-gray-300 rounded-md"}
+          breakLinkClassName={"text-gray-500"}
+          previousLinkClassName={"px-3 py-1 cursor-pointer"}
+          nextLinkClassName={"px-3 py-1 cursor-pointer"}
+        />
+
 
         {/* Add button */}
         <button onClick={() => openModal()} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4">
