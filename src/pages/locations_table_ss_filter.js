@@ -66,14 +66,13 @@ const LocationTable = () => {
     const countQuery =buildLocationsQuery();
     const dataQuery = buildLocationsQuery().range((page - 1) * pageSize, page * pageSize - 1);
 
+    //TODO: Should be able to get the count from the dataQuery, but it's not working.  So we're querying all data.
     const [{ data, error }, { data: countData, error: countError }] = await Promise.all([
       dataQuery.select("*"),
       countQuery.select("id", { count: "exact", head: true })
     ]);
 
-   console.log("data", data);
-   console.log('countData.length', countData.length);
-  
+ 
     if (error || countError) {
       console.error("Error fetching locations:", error || countError);
     } else {
